@@ -1,27 +1,27 @@
 import "dotenv/config";
 import express from "express";
-import cors from "cors";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import OpenAI from "openai";
 
 const app = express();
+
 const PORT = process.env.PORT || 3001;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DIST_PATH = path.resolve(__dirname, "../dist");
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-  }),
-);
-
 app.use(express.json({ limit: "1mb" }));
 
 const SYSTEM_INSTRUCTIONS = `
-You are Bharat Numerika, an educational AI tutor for a college Indian
-Knowledge Systems project called "Bharat Numerika: An IKS-Based Chatbot
-on Ancient Indian Mathematics."
+You are Bharat Numerika, an educational AI tutor for a college
+Indian Knowledge Systems project called "Bharat Numerika: An IKS-Based
+Chatbot on Ancient Indian Mathematics."
 
 Your main subjects are:
 - Indian Number System
@@ -134,7 +134,7 @@ app.post("/api/chat", async (req, res) => {
 
     if (!process.env.OPENAI_API_KEY) {
       return res.status(500).json({
-        error: "OPENAI_API_KEY is missing from .env",
+        error: "OPENAI_API_KEY is missing from environment variables.",
       });
     }
 
@@ -167,9 +167,7 @@ ${knowledgeContext}`,
       response.output_text?.trim() ||
       "I couldn't generate an answer right now.";
 
-    res.json({
-      answer,
-    });
+    res.json({ answer });
   } catch (error) {
     console.error("AI ERROR:", error);
 
@@ -181,8 +179,21 @@ ${knowledgeContext}`,
   }
 });
 
-app.listen(PORT, () => {
+/*
+ * Serve the production React build.
+ */
+app.use(express.static(DIST_PATH));
+
+/*
+ * React SPA fallback.
+ * All non-API routes return the React application.
+ */
+app.get("/{*splat}", (_req, res) => {
+  res.sendFile(path.join(DIST_PATH, "index.html"));
+});
+
+app.listen(PORT, "0.0.0.0", () => {
   console.log(
-    `Bharat Numerika AI server running on http://localhost:${PORT}`,
+    `Bharat Numerika server running on port ${PORT}`,
   );
 });
